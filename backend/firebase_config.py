@@ -21,31 +21,39 @@ def initialize_firebase():
         if not firebase_admin._apps:
             # Try to get credentials from environment variable
             cred_json = os.getenv('FIREBASE_CREDENTIALS_JSON')
-            cred_path = os.getenv('GOOGLE_APPLICATION_CREDENTIALS')
-            
-            # Get Firebase configuration from environment variables
-            project_id = os.getenv('FIREBASE_PROJECT_ID')
             
             if cred_json:
-                # Use credentials from environment variable JSON
-                cred = credentials.Certificate(json.loads(cred_json))
-            elif cred_path:
-                # Use credentials from file path
-                cred = credentials.Certificate(cred_path)
-            elif project_id:
-                # Use project ID from environment variables
-                firebase_config = {
-                    "projectId": project_id
-                }
-                # Initialize with project ID only (requires default credentials or allows unauthenticated access)
-                firebase_admin.initialize_app(options=firebase_config)
-                print(f"Initialized Firebase with project ID: {project_id}")
+                # Print first few characters to verify it's loading
+                print(f"Found credentials JSON: {cred_json[:30]}...")
+                
+                try:
+                    # Parse the JSON
+                    cred_dict = json.loads(cred_json)
+                    print("Successfully parsed JSON credentials")
+                    
+                    # Initialize with credentials
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred)
+                    print("Firebase initialized successfully with credentials!")
+                except json.JSONDecodeError as je:
+                    print(f"Error parsing JSON credentials: {je}")
+                    return None
+                except Exception as ce:
+                    print(f"Error creating credentials: {ce}")
+                    return None
             else:
-                # For development only - use application default credentials
-                # In production, always use proper credentials
-                cred = None
-                print("WARNING: Using application default credentials. This is not recommended for production.")
-                firebase_admin.initialize_app(cred)
+                print("No Firebase credentials found in environment variables")
+                # Try initializing with just project ID as fallback
+                project_id = os.getenv('FIREBASE_PROJECT_ID')
+                if project_id:
+                    print(f"Attempting to initialize with project ID: {project_id}")
+                    firebase_admin.initialize_app(options={"projectId": project_id})
+                    print("Firebase initialized with project ID only!")
+                else:
+                    print("No project ID found either. Cannot initialize Firebase.")
+                    return None
+        else:
+            print("Firebase already initialized")
         
         # Get Firestore client
         db = firestore.client()
