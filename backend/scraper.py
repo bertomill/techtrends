@@ -9,6 +9,7 @@ This module provides functionality to:
 
 import re
 import requests
+import httpx
 from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
@@ -148,8 +149,21 @@ class ClaudeAPI:
         if not self.api_key:
             raise ValueError("Claude API key is not configured")
         
-        # Initialize Anthropic client with minimal parameters for version 0.5.0
-        self.client = Anthropic(api_key=self.api_key)
+        # Create a custom HTTP client without proxies
+        try:
+            # Create a basic httpx client without any extra parameters
+            http_client = httpx.Client(timeout=60.0)
+            
+            # Initialize Anthropic with the custom client
+            self.client = Anthropic(
+                api_key=self.api_key,
+                http_client=http_client
+            )
+            print("Anthropic client initialized successfully")
+        except Exception as e:
+            print(f"Error initializing Anthropic client: {e}")
+            # Fallback to basic initialization
+            self.client = Anthropic(api_key=self.api_key)
     
     def generate_memo(self, content, research_task, context="", theme=""):
         """
@@ -212,14 +226,24 @@ Please be concise, factual, and analytical in your memo. Use proper Markdown for
 DO NOT include a disclaimer at the end about the memo being based on publicly available information.
 """
 
-            # For Anthropic 0.5.0, use the completion API
-            response = self.client.completions.create(
-                model="claude-3-7-sonnet-20250219",
-                prompt=f"{system_prompt}\n\n{user_prompt}",
-                max_tokens_to_sample=4000,
-            )
-            
-            return response.completion
+            try:
+                # For Anthropic 0.5.0, use the completion API
+                response = self.client.completions.create(
+                    model="claude-3-7-sonnet-20250219",
+                    prompt=f"{system_prompt}\n\n{user_prompt}",
+                    max_tokens_to_sample=4000,
+                )
+                
+                return response.completion
+            except Exception as e:
+                print(f"Error with completions API: {e}")
+                # Try a simpler approach as fallback
+                response = self.client.completion(
+                    prompt=f"{system_prompt}\n\n{user_prompt}",
+                    model="claude-3-7-sonnet-20250219",
+                    max_tokens_to_sample=4000,
+                )
+                return response.completion
             
         except Exception as e:
             return f"Error generating memo with Claude API: {str(e)}"
