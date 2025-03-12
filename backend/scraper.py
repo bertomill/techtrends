@@ -10,6 +10,7 @@ This module provides functionality to:
 import re
 import requests
 import httpx
+import json
 from bs4 import BeautifulSoup
 from youtube_transcript_api import YouTubeTranscriptApi
 from youtube_transcript_api.formatters import TextFormatter
@@ -165,6 +166,43 @@ class ClaudeAPI:
             # Fallback to basic initialization
             self.client = Anthropic(api_key=self.api_key)
     
+    def _direct_api_request(self, system_prompt, user_prompt):
+        """
+        Make a direct HTTP request to the Anthropic API without using the SDK.
+        
+        Args:
+            system_prompt (str): The system prompt
+            user_prompt (str): The user prompt
+            
+        Returns:
+            str: The generated text or error message
+        """
+        try:
+            url = "https://api.anthropic.com/v1/messages"
+            headers = {
+                "Content-Type": "application/json",
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01"
+            }
+            
+            data = {
+                "model": "claude-3-7-sonnet-20250219",
+                "max_tokens": 4000,
+                "system": system_prompt,
+                "messages": [
+                    {"role": "user", "content": user_prompt}
+                ]
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            
+            result = response.json()
+            return result.get("content", [{}])[0].get("text", "No response generated")
+            
+        except Exception as e:
+            return f"Error with direct API request: {str(e)}"
+    
     def generate_memo(self, content, research_task, context="", theme=""):
         """
         Generate a research memo using Claude 3.7.
@@ -237,13 +275,9 @@ DO NOT include a disclaimer at the end about the memo being based on publicly av
                 return response.completion
             except Exception as e:
                 print(f"Error with completions API: {e}")
-                # Try a simpler approach as fallback
-                response = self.client.completion(
-                    prompt=f"{system_prompt}\n\n{user_prompt}",
-                    model="claude-3-7-sonnet-20250219",
-                    max_tokens_to_sample=4000,
-                )
-                return response.completion
+                # Skip the client.completion attempt and go straight to direct API request
+                print("Falling back to direct API request")
+                return self._direct_api_request(system_prompt, user_prompt)
             
         except Exception as e:
             return f"Error generating memo with Claude API: {str(e)}"
