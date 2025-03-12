@@ -5,7 +5,7 @@
 import os  # For working with files and folders
 import pandas as pd  # For organizing data in tables
 import numpy as np  # For doing math calculations
-from flask import Flask, request, jsonify  # For creating our web server
+from flask import Flask, request, jsonify, make_response  # For creating our web server
 from flask_cors import CORS  # For allowing different websites to talk to our server
 from config import Config  # Our custom settings
 from firebase_config import initialize_firebase  # For connecting to our database
@@ -26,7 +26,37 @@ app.config.from_object(Config)  # Load our settings
 # For production, we'll use environment variables to specify allowed origins
 allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000')
 origins = allowed_origins.split(',')
-CORS(app, resources={r"/api/*": {"origins": origins}})  # Allow specific websites to talk to us
+
+# Configure CORS with additional options
+cors = CORS(
+    app,
+    resources={
+        r"/api/*": {
+            "origins": origins,
+            "allow_headers": ["Content-Type", "Authorization"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        }
+    }
+)
+
+# Add security headers to all responses
+@app.after_request
+def add_security_headers(response):
+    # Add Content Security Policy header
+    response.headers['Content-Security-Policy'] = (
+        "default-src 'self';"
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' http://localhost:* https://apis.google.com;"
+        "style-src 'self' 'unsafe-inline';"
+        "img-src 'self' data: https:;"
+        "connect-src 'self' http://localhost:* https://firestore.googleapis.com https://*.firebaseio.com;"
+        "frame-src 'self' https://*.firebaseapp.com https://*.firebase.com;"
+        "font-src 'self' data:;"
+    )
+    # Add other security headers
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    return response
 
 # Get everything ready to run
 Config.init_app()  # Load our configuration settings

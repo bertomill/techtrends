@@ -136,6 +136,8 @@ class ClaudeAPI:
             api_key (str, optional): The Claude API key. Defaults to the one in Config.
         """
         self.api_key = api_key or Config.CLAUDE_API_KEY
+        if not self.api_key:
+            raise ValueError("Claude API key is not configured")
         self.client = Anthropic(api_key=self.api_key)
     
     def generate_memo(self, content, research_task, context="", theme=""):

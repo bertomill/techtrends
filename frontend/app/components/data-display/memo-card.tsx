@@ -28,8 +28,13 @@ export function MemoCard({ memo, onDelete }: MemoCardProps) {
 
   // Process the memo content to remove the disclaimer
   const processContent = (content: string) => {
-    // Remove the disclaimer section if it exists
-    return content.replace(/---\s*\n\*This memo is based on publicly available information.*?\*/gs, '');
+    // Find the position of the disclaimer section if it exists
+    const disclaimerIndex = content.indexOf('---');
+    if (disclaimerIndex !== -1 && content.includes('This memo is based on publicly available information')) {
+      // Return only the content before the disclaimer
+      return content.substring(0, disclaimerIndex);
+    }
+    return content;
   };
 
   return (

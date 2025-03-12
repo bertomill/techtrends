@@ -134,7 +134,10 @@ Background: ${persona.background}`;
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Origin': window.location.origin,
         },
+        credentials: 'include',
+        mode: 'cors',
         body: JSON.stringify({ url: formData.urls[0] }),
       }).catch(error => {
         console.error('Fetch error:', error);
@@ -185,7 +188,8 @@ Background: ${persona.background}`;
       setGenerationStatus('Step 1/2: Scraping content...');
       
       const apiUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/scrape-and-generate`;
-      console.log('Sending request to:', apiUrl);
+      console.log('API URL:', process.env.NEXT_PUBLIC_API_URL);
+      console.log('Full API URL:', apiUrl);
       
       // Prepare request data
       const requestData = {
@@ -209,22 +213,44 @@ Background: ${persona.background}`;
         });
       }
       
+      console.log('Request Data:', requestData);
+      
+      try {
+        // First try a preflight request to check CORS
+        const preflightResponse = await fetch(apiUrl, {
+          method: 'OPTIONS',
+          headers: {
+            'Origin': window.location.origin,
+          },
+        });
+        console.log('Preflight response:', preflightResponse.status);
+      } catch (preflightError) {
+        console.error('CORS Preflight error:', preflightError);
+      }
+
       // Send request to backend to scrape content and generate memo
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Origin': window.location.origin,
         },
+        credentials: 'include',
+        mode: 'cors',
         body: JSON.stringify(requestData),
-      }).catch(error => {
-        console.error('Fetch error:', error);
-        throw new Error(`Network error: ${error.message}`);
       });
 
-      if (!response) {
-        throw new Error('No response from server');
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        throw new Error(`Server error: ${response.status} - ${errorText}`);
       }
+
+      const data = await response.json();
 
       // Update status to show we're now generating the memo with Claude
       setGenerationStatus('Step 2/2: Generating memo with Claude 3.7...');
@@ -232,26 +258,6 @@ Background: ${persona.background}`;
       // Add a small delay to ensure the status update is visible to the user
       // This makes sure the UI has time to update before we continue processing
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      console.log('Response status:', response.status);
-      const data = await response.json().catch(error => {
-        console.error('JSON parse error:', error);
-        throw new Error('Failed to parse response from server');
-      });
-
-      if (!response.ok) {
-        console.error('API error:', data);
-        // Check if the error is related to Claude API
-        if (data.error && data.error.includes('Claude API')) {
-          throw new Error(`Claude API error: ${data.error}. Please check your API key configuration.`);
-        } else {
-          throw new Error(data.error || 'Failed to generate memo');
-        }
-      }
-
-      // Add a small delay before showing success message
-      // This ensures users can see the "Generating memo" status
-      await new Promise(resolve => setTimeout(resolve, 500));
       
       setGenerationStatus('Success! Memo generated.');
       toast.success('Memo generated successfully!');
