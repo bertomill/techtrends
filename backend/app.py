@@ -252,7 +252,16 @@ def add_trend():
     if db:
         # Save to database
         doc_ref = db.collection(TRENDS_COLLECTION).add(new_row)
-        new_row['id'] = doc_ref.id
+        # Check if doc_ref is a tuple and extract the first element if it is
+        if isinstance(doc_ref, tuple) and len(doc_ref) > 0:
+            new_row['id'] = doc_ref[0].id
+        else:
+            # Try to get the ID directly if it's not a tuple
+            try:
+                new_row['id'] = doc_ref.id
+            except AttributeError:
+                # If we can't get an ID, generate a random one
+                new_row['id'] = f"trend-{int(time.time())}"
     else:
         # Save to backup file
         df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
@@ -485,7 +494,16 @@ def scrape_and_generate():
         # Store the new trend
         if db:
             doc_ref = db.collection(TRENDS_COLLECTION).add(new_trend)
-            new_trend['id'] = doc_ref.id
+            # Check if doc_ref is a tuple and extract the first element if it is
+            if isinstance(doc_ref, tuple) and len(doc_ref) > 0:
+                new_trend['id'] = doc_ref[0].id
+            else:
+                # Try to get the ID directly if it's not a tuple
+                try:
+                    new_trend['id'] = doc_ref.id
+                except AttributeError:
+                    # If we can't get an ID, generate a random one
+                    new_trend['id'] = f"trend-{int(time.time())}"
         else:
             df = load_trends_data()
             df = pd.concat([df, pd.DataFrame([new_trend])], ignore_index=True)
