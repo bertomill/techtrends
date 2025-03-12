@@ -29,10 +29,19 @@ class ContentScraper:
         Returns:
             str: The YouTube video ID or None if not found
         """
-        # Regular expression to match YouTube video IDs
-        youtube_regex = r'(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})'
-        match = re.search(youtube_regex, url)
-        return match.group(1) if match else None
+        # Regular expressions for different YouTube URL formats
+        patterns = [
+            r'(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?]+)',
+            r'(?:youtube\.com\/embed\/)([^&\n?]+)',
+            r'(?:youtube\.com\/v\/)([^&\n?]+)'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, url)
+            if match:
+                return match.group(1)
+        
+        return None
     
     @staticmethod
     def get_youtube_transcript(url):
@@ -138,6 +147,8 @@ class ClaudeAPI:
         self.api_key = api_key or Config.CLAUDE_API_KEY
         if not self.api_key:
             raise ValueError("Claude API key is not configured")
+        
+        # Initialize Anthropic client with minimal parameters for version 0.5.0
         self.client = Anthropic(api_key=self.api_key)
     
     def generate_memo(self, content, research_task, context="", theme=""):
@@ -148,7 +159,7 @@ class ClaudeAPI:
             content (str): The content to analyze
             research_task (str): The research task description
             context (str, optional): Additional context
-            theme (str, optional): The research theme
+            theme (str, optional): The theme or category
             
         Returns:
             str: The generated memo
@@ -201,27 +212,14 @@ Please be concise, factual, and analytical in your memo. Use proper Markdown for
 DO NOT include a disclaimer at the end about the memo being based on publicly available information.
 """
 
-            try:
-                # Try the newer API format first
-                response = self.client.messages.create(
-                    model="claude-3-7-sonnet-20250219",
-                    max_tokens=4000,
-                    system=system_prompt,
-                    messages=[
-                        {"role": "user", "content": user_prompt}
-                    ]
-                )
-                
-                return response.content[0].text
-            except AttributeError:
-                # Fall back to older API format if needed
-                response = self.client.completions.create(
-                    model="claude-3-7-sonnet-20250219",
-                    prompt=f"{system_prompt}\n\n{user_prompt}",
-                    max_tokens_to_sample=4000,
-                )
-                
-                return response.completion
+            # For Anthropic 0.5.0, use the completion API
+            response = self.client.completions.create(
+                model="claude-3-7-sonnet-20250219",
+                prompt=f"{system_prompt}\n\n{user_prompt}",
+                max_tokens_to_sample=4000,
+            )
+            
+            return response.completion
             
         except Exception as e:
             return f"Error generating memo with Claude API: {str(e)}"
