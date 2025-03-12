@@ -39,3 +39,6 @@ data/
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Firebase credentials
+firebase_credentials.json
